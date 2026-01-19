@@ -8,12 +8,11 @@ const app = express();
 app.use(bodyParser.json());
 app.use(express.static("public"));
 
-// Route utama ke login.html
 app.get("/", (req, res) => {
   res.sendFile(__dirname + "/public/login.html");
 });
 
-// 🔧 Koneksi ke MariaDB/MySQL dari Railway
+// 🔧 Koneksi ke MariaDB/MySQL
 const db = mysql.createPool({
   host: process.env.MYSQLHOST,
   user: process.env.MYSQLUSER,
@@ -73,5 +72,5 @@ app.post("/scan", async (req, res) => {
 // 🚀 Jalankan server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 Server jalan di port ${PORT}`);
+  console.log(`🚀 Server aktif di port ${PORT}`);
 });
