@@ -13,6 +13,9 @@ app.get("/", (req, res) => {
 
 // 🔧 Koneksi ke MariaDB/MySQL
 const db = mysql.createPool({
+  db.getConnection()
+  .then(() => console.log("✅ Koneksi database berhasil"))
+  .catch(err => console.error("❌ Gagal koneksi DB:", err));
   host: process.env.MYSQLHOST,
   user: process.env.MYSQLUSER,
   password: process.env.MYSQLPASSWORD,
