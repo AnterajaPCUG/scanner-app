@@ -7,13 +7,17 @@ const mysql = require("mysql2/promise");
 const app = express();
 app.use(bodyParser.json());
 app.use(express.static("public"));
+app.get("/", (req, res) => {
+  res.sendFile(__dirname + "/public/login.html");
+});
 
 // 🔧 Koneksi ke MariaDB/MySQL
 const db = mysql.createPool({
-  host: "localhost",
-  user: "root",
-  password: "", // isi password root kamu kalau ada
-  database: "scanner_app"
+  host: process.env.MYSQLHOST,
+  user: process.env.MYSQLUSER,
+  password: process.env.MYSQLPASSWORD,
+  database: process.env.MYSQLDATABASE,
+  port: process.env.MYSQLPORT
 });
 
 // Register
@@ -58,7 +62,7 @@ app.post("/scan", async (req, res) => {
   await db.query("INSERT INTO scans (user_id, result) VALUES (?, ?)", [userId, result]);
   res.json({ message: "Scan berhasil disimpan" });
 });
-
-app.listen(3000, () => {
-  console.log("Server jalan di http://localhost:3000");
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server jalan di port ${PORT}`);
 });
