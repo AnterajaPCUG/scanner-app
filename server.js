@@ -13,16 +13,15 @@ app.get("/", (req, res) => {
 
 // 🔧 Koneksi ke MariaDB/MySQL
 const db = mysql.createPool({
-  db.getConnection()
-  .then(() => console.log("✅ Koneksi database berhasil"))
-  .catch(err => console.error("❌ Gagal koneksi DB:", err));
   host: process.env.MYSQLHOST,
   user: process.env.MYSQLUSER,
   password: process.env.MYSQLPASSWORD,
   database: process.env.MYSQLDATABASE,
   port: process.env.MYSQLPORT
 });
-
+db.getConnection()
+  .then(() => console.log("✅ Koneksi database berhasil"))
+  .catch(err => console.error("❌ Gagal koneksi DB:", err));
 // Register
 app.post("/register", async (req, res) => {
   const { username, password } = req.body;
