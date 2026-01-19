@@ -63,6 +63,6 @@ app.post("/scan", async (req, res) => {
   res.json({ message: "Scan berhasil disimpan" });
 });
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server jalan di port ${PORT}`);
 });
