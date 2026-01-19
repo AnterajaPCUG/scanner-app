@@ -7,11 +7,13 @@ const mysql = require("mysql2/promise");
 const app = express();
 app.use(bodyParser.json());
 app.use(express.static("public"));
+
+// Route utama ke login.html
 app.get("/", (req, res) => {
   res.sendFile(__dirname + "/public/login.html");
 });
 
-// 🔧 Koneksi ke MariaDB/MySQL
+// 🔧 Koneksi ke MariaDB/MySQL dari Railway
 const db = mysql.createPool({
   host: process.env.MYSQLHOST,
   user: process.env.MYSQLUSER,
@@ -19,10 +21,13 @@ const db = mysql.createPool({
   database: process.env.MYSQLDATABASE,
   port: process.env.MYSQLPORT
 });
+
+// 🔍 Cek koneksi database
 db.getConnection()
   .then(() => console.log("✅ Koneksi database berhasil"))
   .catch(err => console.error("❌ Gagal koneksi DB:", err));
-// Register
+
+// 🔐 Register
 app.post("/register", async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) {
@@ -38,7 +43,7 @@ app.post("/register", async (req, res) => {
   }
 });
 
-// Login
+// 🔓 Login
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
   const [rows] = await db.query("SELECT * FROM users WHERE username = ?", [username]);
@@ -54,7 +59,7 @@ app.post("/login", async (req, res) => {
   res.json({ token });
 });
 
-// Scan
+// 📷 Scan
 app.post("/scan", async (req, res) => {
   const { userId, result } = req.body;
   if (!userId || !result) {
@@ -64,7 +69,9 @@ app.post("/scan", async (req, res) => {
   await db.query("INSERT INTO scans (user_id, result) VALUES (?, ?)", [userId, result]);
   res.json({ message: "Scan berhasil disimpan" });
 });
+
+// 🚀 Jalankan server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server jalan di port ${PORT}`);
+  console.log(`🚀 Server jalan di port ${PORT}`);
 });
