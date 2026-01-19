@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Login Scanner</title>
+  <style>
+    body { font-family: Arial; background-image:url('grok.jpg'); background-size:cover;  display:flex; justify-content:center; align-items:center; height:100vh; background-position:center; }
+    .box { background:#fff; padding:20px; border-radius:10px; box-shadow:0 0 10px rgba(0,0,0,0.2); width:300px; }
+    input, button { width:100%; padding:10px; margin:5px 0; border-radius:5px; border:1px solid #ccc; }
+    button { background:#4facfe; color:#fff; border:none; cursor:pointer; }
+    button:hover { background:#00c6fb; }
+    a { display:block; margin-top:10px; text-align:center; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h2>Login</h2>
+    <form id="loginForm">
+      <input type="text" id="username" placeholder="Username" required>
+      <input type="password" id="password" placeholder="Password" required>
+      <button type="submit">Login</button>
+    </form>
+    <a href="register.html">Belum punya akun? Daftar</a>
+  </div>
+
+  <script>
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const username = document.getElementById("username").value;
+      const password = document.getElementById("password").value;
+
+      const res = await fetch("/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+
+      if (data.token) {
+        localStorage.setItem("token", data.token);
+        window.location.href = "scanner.html";
+      } else {
+        alert("Login gagal: " + data.error);
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Scanner Barcode Toko - ML-style Web</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --fg: #e2e8f0;
+      --accent: #22c55e;
+      --warn: #ef4444;
+      --muted: #94a3b8;
+      --card: #111827;
+    }
+    * { box-sizing: border-box }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+      background: linear-gradient(180deg, var(--bg), #030712);
+      color: var(--fg);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .container {
+      flex: 1;   
+      margin: 0 auto;
+      width: 100%;
+      max-width: 1080px;
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 960px) {
+      .container { grid-template-columns: 1fr; }
+    }
+    .card {
+      background: rgba(17, 24, 39, 0.7);
+      border: 1px solid #1f2937;
+      border-radius: 16px;
+      padding: 16px;
+      backdrop-filter: blur(6px);
+    }
+    .title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin: 0 0 12px;
+    }
+    .controls {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    button, select {
+      background: #111827;
+      color: var(--fg);
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover { border-color: #475569 }
+    button.primary { border-color: var(--accent); color: #eafff3 }
+    button.warn { border-color: var(--warn); color: #ffecec }
+    .videoWrap {
+      position: relative;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid #1f2937;
+      background: #000;
+      aspect-ratio: 16 / 10;
+    }
+    video, canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: cover;
+    }
+    .overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+    .badge {
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      border: 1px solid #334155;
+      color: var(--muted);
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin: 12px 0;
+    }
+    .statBox {
+      background: var(--card);
+      border: 1px solid #1f2937;
+      border-radius: 12px;
+      padding: 12px;
+    }
+    .statBox .label { color: var(--muted); font-size: 0.85rem; }
+    .statBox .value { font-size: 1.4rem; font-weight: 800; margin-top: 4px; }
+    .statBox.success .value { color: var(--accent); }
+    .statBox.warn .value { color: var(--warn); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      border-spacing: 0;
+      font-size: 0.95rem;
+    }
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #1f2937;
+    }
+    th {
+      text-align: left;
+      color: var(--muted);
+      font-weight: 700;
+      background: rgba(15, 23, 42, 0.5);
+    }
+    tr:hover td { background: rgba(30, 41, 59, 0.25); }
+    .status.success { color: var(--accent); font-weight: 700; }
+    .status.warn { color: var(--warn); font-weight: 700; }
+    .toast {
+      position: fixed;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #111827;
+      border: 1px solid #334155;
+      color: var(--fg);
+      padding: 10px 14px;
+      border-radius: 999px;
+      font-weight: 700;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+      z-index: 50;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 200ms ease;
+    }
+    .toast.show { opacity: 1; }
+    .help {
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+    .footnote { color: var(--muted); font-size: 0.85rem; margin-top: 8px; }
+.footer {
+  width: 100%;
+  background: var(--card);
+  border-top: 1px solid #1f2937;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-top: 32px;
+}
+
+.footer a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.footer a:hover {
+  text-decoration: underline;
+  color: #4ade80;
+}
+
+.footer .footnote {
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <section class="card">
+      <h2 class="title">Kamera scanner barcode</h2>
+      <div class="controls">
+        <select id="cameraSelect" title="Pilih kamera"></select>
+        <button id="startBtn" class="primary">Mulai scan</button>
+        <button id="stopBtn">Stop</button>
+        <button id="resetBtn" class="warn">Reset data</button>
+        <span class="badge" id="supportBadge">Memeriksa dukungan BarcodeDetector…</span>
+      </div>
+      <div class="videoWrap">
+        <video id="video" playsinline></video>
+        <canvas id="overlay" class="overlay"></canvas>
+      </div>
+      <p class="footnote">Tips: jaga pencahayaan cukup, posisikan barcode di tengah, dan jarak kamera ~10–20 cm sesuai ukuran barcode.</p>
+    </section>
+
+    <section class="card">
+      <h2 class="title">Ringkasan & riwayat</h2>
+      <div class="stats">
+        <div class="statBox">
+          <div class="label">Total scan</div>
+          <div class="value" id="statTotal">0</div>
+        </div>
+        <div class="statBox success">
+          <div class="label">Produk baru</div>
+          <div class="value" id="statNew">0</div>
+        </div>
+        <div class="statBox warn">
+          <div class="label">Double scan</div>
+          <div class="value" id="statDup">0</div>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Kode</th>
+            <th>Format</th>
+            <th>Status</th>
+            <th>Sumber</th>
+            <th>Waktu</th>
+          </tr>
+        </thead>
+        <tbody id="historyBody"></tbody>
+      </table>
+
+      <div class="help" style="margin-top:12px">
+        <p><strong>Catatan:</strong> Double scan dideteksi jika kode yang sama muncul lagi. Kamu bisa reset data bila perlu.</p>
+        <p>Suara: Untuk yang double scan kita bedakan suaranya</p>
+      </div>
+    </section>
+  </div>
+
+  <!-- Audio untuk suara -->
+  <audio id="beepSuccess" src="scan_success.wav" preload="auto"></audio>
+  <audio id="beepError" src="scan_error.wav" preload="auto"></audio>
+
+  <!-- Toast -->
+  <div id="toast" class="toast"></div>
+‎<footer class="footer">
+  <p>© 2026 <strong>Barcode Scanner</strong>. Dibuat dengan ❤️ oleh 
+    <a href="https://wa.me/6281316475941" target="_blank">Om Der</a>
+  </p>
+  <p class="footnote">Aplikasi ini lahir dari kepedulian kami sebagai kurir terhadap toko online dan efisiensi kerja lapangan.</p>
+</footer>
+  <script>
+    // ---------- State & util ----------
+    const state = {
+      counts: new Map(),   // kode -> jumlah muncul
+      total: 0,
+      newCount: 0,
+      dupCount: 0,
+      history: []          // {code, format, status, source, ts}
+    };
+
+    const el = {
+      cameraSelect: document.getElementById('cameraSelect'),
+      startBtn: document.getElementById('startBtn'),
+      stopBtn: document.getElementById('stopBtn'),
+      resetBtn: document.getElementById('resetBtn'),
+      supportBadge: document.getElementById('supportBadge'),
+      video: document.getElementById('video'),
+      overlay: document.getElementById('overlay'),
+      statTotal: document.getElementById('statTotal'),
+      statNew: document.getElementById('statNew'),
+      statDup: document.getElementById('statDup'),
+      historyBody: document.getElementById('historyBody'),
+      toast: document.getElementById('toast'),
+      beepSuccess: document.getElementById('beepSuccess'),
+      beepError: document.getElementById('beepError'),
+    };
+
+    const fmtTime = (ts) => new Date(ts).toLocaleString();
+    const toast = (msg, kind = 'info') => {
+      el.toast.textContent = msg;
+      el.toast.style.borderColor = kind === 'warn' ? '#ef4444' : kind === 'success' ? '#22c55e' : '#334155';
+      el.toast.classList.add('show');
+      setTimeout(() => el.toast.classList.remove('show'), 1200);
+    };
+
+    const playSound = (kind) => {
+      const elAudio = kind === 'dup' ? el.beepError : el.beepSuccess;
+      if (!elAudio) return;
+      try {
+        elAudio.currentTime = 0;
+        elAudio.play();
+      } catch (e) {
+        // Jika autoplay diblokir, user perlu interaksi (klik "Mulai scan")
+        // Tidak perlu apa-apa di sini.
+      }
+    };
+
+    // ---------- Kamera ----------
+    let stream = null;
+    let running = false;
+    let detector = null;
+    let rafId = null;
+
+    async function listCameras() {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videos = devices.filter(d => d.kind === 'videoinput');
+      el.cameraSelect.innerHTML = '';
+      videos.forEach((d, i) => {
+        const opt = document.createElement('option');
+        opt.value = d.deviceId;
+        opt.textContent = d.label || `Kamera ${i + 1}`;
+        el.cameraSelect.appendChild(opt);
+      });
+      if (videos.length === 0) {
+        const opt = document.createElement('option');
+        opt.textContent = 'Tidak ada kamera';
+        el.cameraSelect.appendChild(opt);
+      }
+    }
+
+    async function startCamera() {
+      const deviceId = el.cameraSelect.value || undefined;
+      const constraints = {
+        audio: false,
+        video: {
+          deviceId: deviceId ? { exact: deviceId } : undefined,
+          // Resolusi moderat agar decoding cepat
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          focusMode: 'continuous'
+        }
+      };
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
+      el.video.srcObject = stream;
+      await el.video.play();
+      // Siapkan canvas overlay
+      const cvs = el.overlay;
+      cvs.width = el.video.videoWidth || 1280;
+      cvs.height = el.video.videoHeight || 720;
+    }
+
+    function stopCamera() {
+      if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+        stream = null;
+      }
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      running = false;
+    }
+
+    // ---------- BarcodeDetector loop ----------
+    async function initDetector() {
+      if ('BarcodeDetector' in window) {
+        const formats = await BarcodeDetector.getSupportedFormats();
+        el.supportBadge.textContent = `BarcodeDetector aktif (${formats.join(', ')})`;
+        detector = new BarcodeDetector({ formats }); // gunakan semua format yang didukung
+      } else {
+        el.supportBadge.textContent = 'BarcodeDetector tidak didukung di browser ini';
+        // Catatan: Untuk fallback, kamu bisa pakai library pihak ketiga (mis. ZXing-JS).
+        detector = null;
+      }
+    }
+
+    function drawBoxes(barcodes) {
+      const cvs = el.overlay;
+      const ctx = cvs.getContext('2d');
+      ctx.clearRect(0, 0, cvs.width, cvs.height);
+      ctx.lineWidth = 2;
+      barcodes.forEach(b => {
+        const { x, y, width, height } = b.boundingBox || {};
+        if (width && height) {
+          ctx.strokeStyle = '#22c55e';
+          ctx.strokeRect(x, y, width, height);
+        }
+      });
+    }
+
+    async function scanLoop() {
+      if (!running || !detector) return;
+      try {
+        const barcodes = await detector.detect(el.video);
+        if (barcodes && barcodes.length) {
+          drawBoxes(barcodes);
+          // Ambil barcode pertama (atau proses semuanya jika perlu)
+          for (const b of barcodes) {
+            const code = (b.rawValue || '').trim();
+            const format = b.format || 'unknown';
+            if (!code) continue;
+            handleScan(code, format, 'camera');
+            // Untuk mencegah spam dari frame berturut-turut, break di sini
+            break;
+          }
+        } else {
+          drawBoxes([]);
+        }
+      } catch (e) {
+        // Detector bisa error ketika frame tidak siap; abaikan
+      }
+      rafId = requestAnimationFrame(scanLoop);
+    }
+
+    // ---------- Logika scan, hitung, suara ----------
+    function handleScan(code, format, source) {
+      const prev = state.counts.get(code) || 0;
+      const isDuplicate = prev >= 1;
+      state.counts.set(code, prev + 1);
+
+      state.total += 1;
+      if (isDuplicate) {
+        state.dupCount += 1;
+        playSound('dup');
+        toast(`Double scan: ${code}`, 'warn');
+        addHistory(code, format, 'Double', source);
+      } else {
+        state.newCount += 1;
+        playSound('new');
+        toast(`Scan: ${code}`, 'success');
+        addHistory(code, format, 'Baru', source);
+      }
+      renderStats();
+      renderHistory();
+    }
+
+    function addHistory(code, format, status, source) {
+      state.history.unshift({
+        code, format, status, source, ts: Date.now()
+      });
+      // Batasi riwayat agar ringan
+      if (state.history.length > 500) state.history.pop();
+    }
+function handleScan(code, format, source) {
+  const prev = state.counts.get(code) || 0;
+  const isDuplicate = prev >= 1;
+  state.counts.set(code, prev + 1);
+
+  state.total += 1;
+  if (isDuplicate) {
+    state.dupCount += 1;
+    playSound('dup');
+    toast(`Double scan: ${code}`, 'warn');
+    addHistory(code, format, 'Double', source);
+    sendToServer(code, format, 'Double');
+  } else {
+    state.newCount += 1;
+    playSound('new');
+    toast(`Scan: ${code}`, 'success');
+    addHistory(code, format, 'Baru', source);
+    sendToServer(code, format, 'Baru');
+  }
+  renderStats();
+  renderHistory();
+}
+
+// Kirim hasil scan ke server.js
+async function sendToServer(code, format, status) {
+  const token = localStorage.getItem('token');
+  try {
+    const res = await fetch('/scan', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ code, format, status })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      console.error("Gagal simpan:", data.error);
+    } else {
+      console.log("Tersimpan:", data);
+    }
+  } catch (e) {
+    console.error("Error kirim ke server:", e);
+  }
+}
+    function renderStats() {
+      el.statTotal.textContent = state.total;
+      el.statNew.textContent = state.newCount;
+      el.statDup.textContent = state.dupCount;
+    }
+
+    function renderHistory() {
+      const tbody = el.historyBody;
+      tbody.innerHTML = '';
+      for (const item of state.history) {
+        const tr = document.createElement('tr');
+        const tdCode = document.createElement('td');
+        tdCode.textContent = item.code;
+        const tdFmt = document.createElement('td');
+        tdFmt.textContent = item.format;
+        const tdStatus = document.createElement('td');
+        tdStatus.innerHTML = `<span class="status ${item.status === 'Double' ? 'warn' : 'success'}">${item.status}</span>`;
+        const tdSource = document.createElement('td');
+        tdSource.textContent = item.source;
+        const tdTime = document.createElement('td');
+        tdTime.textContent = fmtTime(item.ts);
+        tr.appendChild(tdCode);
+        tr.appendChild(tdFmt);
+        tr.appendChild(tdStatus);
+        tr.appendChild(tdSource);
+        tr.appendChild(tdTime);
+        tbody.appendChild(tr);
+      }
+    }
+
+    function resetData() {
+      state.counts.clear();
+      state.total = 0;
+      state.newCount = 0;
+      state.dupCount = 0;
+      state.history = [];
+      renderStats();
+      renderHistory();
+      toast('Data direset', 'info');
+    }
+
+    // ---------- Event bindings ----------
+    el.startBtn.addEventListener('click', async () => {
+      try {
+        await initDetector();
+        await startCamera();
+        running = true;
+        scanLoop();
+        toast('Mulai scan', 'success');
+      } catch (e) {
+        toast('Gagal memulai kamera', 'warn');
+      }
+    });
+
+    el.stopBtn.addEventListener('click', () => {
+      stopCamera();
+      toast('Scan dihentikan', 'info');
+    });
+
+    el.resetBtn.addEventListener('click', () => resetData());
+
+    // Isi daftar kamera saat load
+    (async () => {
+      try {
+        await listCameras();
+      } catch (e) {
+        // Perlu izin camera untuk menampilkan label; user bisa klik "Mulai scan" dulu
+      }
+    })();
+  </script>
+</body>
+</html>
